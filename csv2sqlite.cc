@@ -70,7 +70,11 @@ int main(int argc, char **argv)
 	wvcsv_splitline(l, line, strlen(line));
 	for (int i = 0; i < (int)l.size(); i++)
 	{
-	    rv = sqlite3_bind_text(stmt, i+1, l[i], strlen(l[i]), SQLITE_STATIC);
+	    if (l[i])
+		rv = sqlite3_bind_text(stmt, i+1, l[i], strlen(l[i]),
+				       SQLITE_STATIC);
+	    else
+		rv = sqlite3_bind_null(stmt, i+1);
 	    if (rv)
 		err.set_both(rv, sqlite3_errmsg(db));
 	}
