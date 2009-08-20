@@ -3,19 +3,19 @@
 #include <sqlite3.h>
 #include <assert.h>
 
-static int _exec(sqlite3 *db, WvError &err, WvStringParm sql)
+static int _exec(sqlite3 *db, WvError &err, WvStringParm fn, WvStringParm sql)
 {
     char *errmsg = NULL;
     int rv = sqlite3_exec(db, sql, NULL, NULL, &errmsg);
     if (rv)
-	err.set_both(rv, errmsg);
+	err.set_both(rv, WvString("%s: %s", fn, errmsg));
     return rv;
 }
 
 
-static int _exec(sqlite3 *db, WvError &err, WVSTRING_FORMAT_DECL)
+static int _exec(sqlite3 *db, WvError &err, WvStringParm fn, WVSTRING_FORMAT_DECL)
 {
-    return _exec(db, err, WvString(WVSTRING_FORMAT_CALL));
+    return _exec(db, err, fn, WvString(WVSTRING_FORMAT_CALL));
 }
 
 
@@ -46,10 +46,11 @@ int main(int argc, char **argv)
     WvStringList headers;
     wvcsv_splitline_slow(headers, headerline.edit(), headerline.len());
     
-    _exec(db, err, "pragma synchronous = no");
-    _exec(db, err, "begin transaction");
-    _exec(db, dontcare, "drop table [%s]", tabname);
-    _exec(db, err, "create table [%s] ([%s])", tabname, headers.join("],["));
+    _exec(db, err, "synchronous", "pragma synchronous = no");
+    _exec(db, err, "drop", "drop table if exists [%s]", tabname);
+    _exec(db, err, WvString("create table(%s)", tabname),
+	  "create table [%s] ([%s])", tabname, headers.join("],["));
+    _exec(db, err, "begin tran", "begin transaction");
     
     WvStringList qm;
     for (int i = headers.count(); i > 0; i--)
@@ -93,10 +94,10 @@ int main(int argc, char **argv)
     sqlite3_finalize(stmt);
     
     if (err.isok())
-	_exec(db, err, "commit transaction");
+	_exec(db, err, "commit", "commit transaction");
     else
     {
-	_exec(db, err, "rollback transaction");
+	_exec(db, err, "rollback", "rollback transaction");
 	fprintf(stderr, "SQL error: %s\n", err.errstr().cstr());
     }
     
