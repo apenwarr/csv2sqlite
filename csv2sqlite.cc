@@ -2,6 +2,8 @@
 #include "wvfdstream.h"
 #include <sqlite3.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <ctype.h>
 
 static int _exec(sqlite3 *db, WvError &err, WvStringParm fn, WvStringParm sql)
 {
@@ -16,6 +18,39 @@ static int _exec(sqlite3 *db, WvError &err, WvStringParm fn, WvStringParm sql)
 static int _exec(sqlite3 *db, WvError &err, WvStringParm fn, WVSTRING_FORMAT_DECL)
 {
     return _exec(db, err, fn, WvString(WVSTRING_FORMAT_CALL));
+}
+
+
+static bool isfloatdigit(char c)
+{
+    return c == 'e' || c == 'E' || c == '+' || c == '-' || c == '.' ||
+	   isdigit(c);
+}
+
+// FIXME: I suck and don't do blobs and large ints and stuff.
+static int bind_determined_type(sqlite3_stmt *stmt, int loc, const char *arg)
+{
+    const char *c = arg;
+    for (; *c; ++c)
+	if (!isdigit(*c))
+	    break;
+    if (!(*c))
+	return sqlite3_bind_int(stmt, loc, atoi(arg));
+
+    for (; *c; ++c)
+	if (!isfloatdigit(*c))
+	    break;
+    if (!(*c))
+    {
+	char *endptr;
+	// We didn't check to see if the float characters were in any *proper*
+	// order, so use strtod to do it for us!
+	double d = strtod(arg, &endptr);
+	if (endptr == c)
+	    return sqlite3_bind_double(stmt, loc, d);
+    }
+
+    return sqlite3_bind_text(stmt, loc, arg, strlen(arg), SQLITE_STATIC);
 }
 
 
@@ -72,8 +107,7 @@ int main(int argc, char **argv)
 	for (int i = 0; i < (int)l.size(); i++)
 	{
 	    if (l[i])
-		rv = sqlite3_bind_text(stmt, i+1, l[i], strlen(l[i]),
-				       SQLITE_STATIC);
+		rv = bind_determined_type(stmt, i + 1, l[i]);
 	    else
 		rv = sqlite3_bind_null(stmt, i+1);
 	    if (rv)
