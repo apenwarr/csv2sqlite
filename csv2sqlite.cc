@@ -68,7 +68,11 @@ int main(int argc, char **argv)
     WvError err, dontcare;
     
     WvString firstline = in.getline(-1);
-    assert(!strncmp(firstline, "TABLE ", 6));
+    if (!firstline || strncmp(firstline, "TABLE ", 6))
+    {
+	fprintf(stderr, "%s: first line should start with TABLE\n", argv[0]);
+	return 3;
+    }
     
     sqlite3 *db;
     int rv = sqlite3_open(sqfile, &db);
@@ -77,7 +81,11 @@ int main(int argc, char **argv)
     
     WvDynBuf b;
     WvString headerline = wvcsv_readline(in, b);
-    assert(!!headerline);
+    if (!headerline.cstr())
+    {
+	fprintf(stderr, "%s: CSV header line is missing\n", argv[0]);
+	return 3;
+    }
     WvStringList headers;
     wvcsv_splitline_slow(headers, headerline.edit(), headerline.len());
     
@@ -103,6 +111,7 @@ int main(int argc, char **argv)
     std::vector<char*> l;
     while (err.isok() && (line = wvcsv_readline(in, b)) != NULL)
     {
+	if (!line[0] || !strcmp(line, "\r")) break; // blank line is end of csv
 	wvcsv_splitline(l, line, strlen(line));
 	for (int i = 0; i < (int)l.size(); i++)
 	{
