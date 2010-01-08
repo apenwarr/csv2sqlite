@@ -1,2 +1,3 @@
 csv2sqlite
 *.o
+.*.d
