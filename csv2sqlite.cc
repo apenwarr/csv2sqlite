@@ -88,11 +88,21 @@ int main(int argc, char **argv)
     }
     WvStringList headers;
     wvcsv_splitline_slow(headers, headerline.edit(), headerline.len());
+    WvString firstcol = headers.isempty() ? "" : *headers.first();
     
     _exec(db, err, "synchronous", "pragma synchronous = no");
     _exec(db, err, "drop", "drop table if exists [%s]", tabname);
     _exec(db, err, WvString("create table(%s)", tabname),
 	  "create table [%s] ([%s])", tabname, headers.join("],["));
+    if (!!firstcol)
+    {
+	// FIXME: we should probably use a better rule for deciding which
+	// columns to index.  But almost always, the primary key is the
+	// first column anyhow.
+	_exec(db, err, "create index",
+	      "create index [%s__pk] on [%s] ([%s])",
+	      tabname, tabname, firstcol);
+    }
     _exec(db, err, "begin tran", "begin transaction");
     
     WvStringList qm;
