@@ -119,10 +119,11 @@ int main(int argc, char **argv)
     
     char *line;
     std::vector<char*> l;
+    std::vector<size_t> lengths;
     while (err.isok() && (line = wvcsv_readline(in, b)) != NULL)
     {
 	if (!line[0] || !strcmp(line, "\r")) break; // blank line is end of csv
-	wvcsv_splitline(l, line, strlen(line));
+	wvcsv_splitline(l, lengths, line, strlen(line));
 	for (int i = 0; i < (int)l.size(); i++)
 	{
 	    if (l[i])
